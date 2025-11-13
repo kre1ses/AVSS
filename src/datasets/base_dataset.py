@@ -1,5 +1,6 @@
 import logging
 import random
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -7,7 +8,6 @@ import torchaudio
 from torch.utils.data import Dataset
 
 from src.text_encoder import CTCTextEncoder
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -85,13 +85,13 @@ class BaseDataset(Dataset):
 
         if data_dict.get("mouth1_path") and Path(data_dict["mouth1_path"]).exists():
             with np.load(data_dict["mouth1_path"]) as data:
-                mouth1 = data
+                mouth1 = data["data"]
         else:
             mouth1 = None
 
         if data_dict.get("mouth2_path") and Path(data_dict["mouth2_path"]).exists():
             with np.load(data_dict["mouth2_path"]) as data:
-                mouth2 = data
+                mouth2 = data["data"]
         else:
             mouth2 = None
 
@@ -102,13 +102,21 @@ class BaseDataset(Dataset):
             "mouth1": mouth1,
             "mouth2": mouth2,
             "mix_path": data_dict["mix_path"],
-            "audio_lenght": data_dict["audio_len"],
+            "mouth1_path": data_dict["mouth1_path"],
+            "mouth2_path": data_dict["mouth2_path"],
+            "mix_lenght": data_dict["audio_len"],
         }
         instance_data = self.preprocess_data(instance_data)
 
-        instance_data["mix_spectrogram"] = self.get_spectrogram(instance_data["mix_audio"])
-        instance_data["s1_spectrogram"] = self.get_spectrogram(instance_data["s1_audio"])
-        instance_data["s2_spectrogram"] = self.get_spectrogram(instance_data["s2_audio"])
+        instance_data["mix_spectrogram"] = self.get_spectrogram(
+            instance_data["mix_audio"]
+        )
+        instance_data["s1_spectrogram"] = self.get_spectrogram(
+            instance_data["s1_audio"]
+        )
+        instance_data["s2_spectrogram"] = self.get_spectrogram(
+            instance_data["s2_audio"]
+        )
         return instance_data
 
     def __len__(self):
@@ -216,7 +224,7 @@ class BaseDataset(Dataset):
             _total = records_to_filter.sum()
             index = [el for el, exclude in zip(index, records_to_filter) if not exclude]
             logger.info(
-                f"Filtered {_total} ({_total / initial_size:.1%}) records  from dataset"
+                f"Filtered {_total} ({_total / initial_size:.1%}) records from dataset"
             )
 
         return index
