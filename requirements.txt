@@ -16,5 +16,6 @@ hydra-core
 black
 isort
 pre-commit
-hydra
+# hydra
 wget
+thop
