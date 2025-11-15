@@ -1,5 +1,6 @@
 import logging
 import random
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -48,11 +49,11 @@ class BaseDataset(Dataset):
                 should be applied on the instance. Depend on the
                 tensor name.
         """
-        self._assert_index_is_valid(index)
+        # self._assert_index_is_valid(index)
 
-        index = self._filter_records_from_dataset(
-            index, max_audio_length, max_text_length
-        )
+        # index = self._filter_records_from_dataset(
+        #     index, max_audio_length, max_text_length
+        # )
         index = self._shuffle_and_limit_index(index, limit, shuffle_index)
         if not shuffle_index:
             index = self._sort_index(index)
@@ -65,40 +66,57 @@ class BaseDataset(Dataset):
 
     def __getitem__(self, ind):
         """
-        Get element from the index, preprocess it, and combine it
-        into a dict.
-
-        Notice that the choice of key names is defined by the template user.
-        However, they should be consistent across dataset getitem, collate_fn,
-        loss_function forward method, and model forward method.
-
-        Args:
-            ind (int): index in the self.index list.
-        Returns:
-            instance_data (dict): dict, containing instance
-                (a single dataset element).
+        Загружает один элемент датасета.
+        Для AVSS: mix, s1, s2, mouth1, mouth2.
         """
         data_dict = self._index[ind]
-        audio_path = data_dict["path"]
-        audio = self.load_audio(audio_path)
-        text = data_dict["text"]
-        text_encoded = self.text_encoder.encode(text)
 
-        spectrogram = self.get_spectrogram(audio)
+        mix_audio = self.load_audio(data_dict["mix_path"])
+        s1_audio = (
+            self.load_audio(data_dict["s1_path"])
+            if data_dict.get("s1_path") is not None
+            else None
+        )
+        s2_audio = (
+            self.load_audio(data_dict["s2_path"])
+            if data_dict.get("s2_path") is not None
+            else None
+        )
+
+        if data_dict.get("mouth1_path") and Path(data_dict["mouth1_path"]).exists():
+            with np.load(data_dict["mouth1_path"]) as data:
+                mouth1 = data["data"]
+        else:
+            mouth1 = None
+
+        if data_dict.get("mouth2_path") and Path(data_dict["mouth2_path"]).exists():
+            with np.load(data_dict["mouth2_path"]) as data:
+                mouth2 = data["data"]
+        else:
+            mouth2 = None
 
         instance_data = {
-            "audio": audio,
-            "spectrogram": spectrogram,
-            "text": text,
-            "text_encoded": text_encoded,
-            "audio_path": audio_path,
+            "mix_audio": mix_audio,
+            "s1_audio": s1_audio,
+            "s2_audio": s2_audio,
+            "mouth1": mouth1,
+            "mouth2": mouth2,
+            "mix_path": data_dict["mix_path"],
+            "mouth1_path": data_dict["mouth1_path"],
+            "mouth2_path": data_dict["mouth2_path"],
+            "mix_lenght": data_dict["audio_len"],
         }
-
-        # TODO think of how to apply wave augs before calculating spectrogram
-        # Note: you may want to preserve both audio in time domain and
-        # in time-frequency domain for logging
         instance_data = self.preprocess_data(instance_data)
 
+        instance_data["mix_spectrogram"] = self.get_spectrogram(
+            instance_data["mix_audio"]
+        )
+        instance_data["s1_spectrogram"] = self.get_spectrogram(
+            instance_data["s1_audio"]
+        )
+        instance_data["s2_spectrogram"] = self.get_spectrogram(
+            instance_data["s2_audio"]
+        )
         return instance_data
 
     def __len__(self):
@@ -206,7 +224,7 @@ class BaseDataset(Dataset):
             _total = records_to_filter.sum()
             index = [el for el, exclude in zip(index, records_to_filter) if not exclude]
             logger.info(
-                f"Filtered {_total} ({_total / initial_size:.1%}) records  from dataset"
+                f"Filtered {_total} ({_total / initial_size:.1%}) records from dataset"
             )
 
         return index
