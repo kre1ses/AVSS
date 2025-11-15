@@ -1,37 +1,50 @@
 import torch
 from torch import Tensor
-from src.metrics.si_snr import SI_SNR_Metric
-        
+from src.loss.base_loss import BaseLoss
+from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
 
-def SI_SNR_Loss(preds: Tensor, targets: Tensor, **batch) -> Tensor:
+        
+class SI_SNR_Loss(BaseLoss):
     '''
     Scale Invariant Sound to Noise Ratio Loss
     preds - predicted waveforms [B, T]
     targets - target waveforms [B, T]
     '''
-    metric = SI_SNR_Metric()
-    si_snr_loss = -metric(preds, targets)
-    loss = si_snr_loss.mean()
+    def __init__(self):
+        super().__init__()
+        self.metric = ScaleInvariantSignalNoiseRatio(reduction='none')
 
-    return {"loss": loss}
+    def calc_loss(self, preds: Tensor, targets: Tensor) -> Tensor:
+        loss = -self.metric(preds, targets)
+        return loss
 
 
-def L1_Loss(preds: Tensor, targets: Tensor, **batch) -> Tensor:
+class L1_Loss(BaseLoss):
     '''
     L1 loss
     preds - predicted [B, T] for waveforms / [B, F, T] for spectrogram
     targets - target [B, T] for wafeforms / [B, F, T] for spectrogram
     '''
-    l1_loss = torch.abs(preds - targets).mean()
-    return {"loss": l1_loss}
+    def __init__(self):
+        super().__init__()  
+
+    def calc_loss(self, preds: Tensor, targets: Tensor) -> Tensor:
+        dims = tuple(range(1, preds.ndim))
+        loss = torch.mean(torch.abs(preds - targets), dim=dims)
+        return loss
 
 
-def L2_Loss(preds: Tensor, targets: Tensor, **batch) -> Tensor:
+class L2_Loss(BaseLoss):
     '''
     L2 loss
     preds - predicted [B, T] for waveforms / [B, F, T] for spectrogram
     targets - target [B, T] for wafeforms / [B, F, T] for spectrogram
     '''
-    l2_loss = torch.mean((preds-targets)**2)
-    return {"loss": l2_loss}
+    def __init__(self):
+        super().__init__()  
+
+    def calc_loss(self, preds: Tensor, targets: Tensor) -> Tensor:
+        dims = tuple(range(1, preds.ndim))
+        loss = torch.mean((preds - targets) ** 2, dim=dims)
+        return loss
 

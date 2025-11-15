@@ -8,7 +8,7 @@ from thop import profile
 
 def compute_model_complexity(model: nn.Module, input_sample: torch.Tensor):
     """
-    Возвращает количество параметров и MACs
+    Количество параметров и MACs
     """
     model.eval()
     with torch.no_grad():
@@ -21,7 +21,7 @@ def compute_model_complexity(model: nn.Module, input_sample: torch.Tensor):
 
 def compute_model_size(model_path: str):
     """
-    Возвращает размер сохранённого файла модели 
+    Размер сохранённого файла модели 
     """
     size_mb = os.path.getsize(model_path) / (1024 ** 2)
     return {"model_size_mb": size_mb}
@@ -29,7 +29,7 @@ def compute_model_size(model_path: str):
 
 def compute_memory_usage(model: nn.Module, input_sample: Tensor, device="cuda"):
     """
-    Возвращает пик GPU-памяти (в GB) для одного forward
+    Возвращает GPU-память (в GB) для одного forward
     """
     model = model.to(device)
     input_sample = input_sample.to(device)
@@ -47,7 +47,7 @@ def compute_memory_usage(model: nn.Module, input_sample: Tensor, device="cuda"):
 
 def compute_time_per_step(model: nn.Module, input_sample: torch.Tensor, device="cuda", n_runs: int = 5):
     """
-    Возвращает среднее время forward шага (в секундах)
+    Среднее время forward шага (в секундах)
     """
     model = model.to(device)
     input_sample = input_sample.to(device)
@@ -70,7 +70,7 @@ def compute_time_per_step(model: nn.Module, input_sample: torch.Tensor, device="
 
 def summarize_model_performance(model: nn.Module, input_sample: torch.Tensor, model_path: str = None, device="cuda"):
     """
-    Возвращает все характеристики модели:
+    Все характеристики модели:
     - количество параметров
     - MACs
     - размер модели

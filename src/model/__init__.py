@@ -1,5 +1,5 @@
-from src.model.baseline_model import BaselineModel
+from src.model.ConvTasNet import ConvTasNet
 
 __all__ = [
-    "BaselineModel",
+    "ConvTasNet"
 ]

@@ -9,8 +9,8 @@ class ConvTasNetEncoder(nn.Module):
         N (int): number of filters in autoencoder
         L (int): length of the filters (in samples)
 
-    Input: [B, 1, T]
-    Output: [B, N, T_new]
+    Input: [batch, 1, T]
+    Output: [batch, N, T_new]
     '''
 
     def __init__(self, N: int, L: int):

@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torch import Tensor
 import torch
-from src.model.baseline_model.utils import GlobalLayerNorm
+from src.model.ConvTasNet.utils import GlobalLayerNorm
 
 
 class ConvolutionBlock(nn.Module):
