@@ -103,7 +103,8 @@ class CometMLWriter:
         else:
             duration = datetime.now() - self.timer
             self.add_scalar(
-                "steps_per_sec", (self.step - previous_step) / duration.total_seconds()
+                "steps_per_sec",
+                (int(self.step) - previous_step) / duration.total_seconds(),
             )
             self.timer = datetime.now()
 
