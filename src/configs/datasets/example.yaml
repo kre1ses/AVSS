@@ -3,6 +3,7 @@ train:
   part: "train"
   embed_dir: "src/data/embeddings"
   instance_transforms: ${transforms.instance_transforms.train}
+  # limit: 2
 val:
   _target_: src.datasets.AVSSDataset
   part: "val"

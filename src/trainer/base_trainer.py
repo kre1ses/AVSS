@@ -225,7 +225,7 @@ class BaseTrainer:
                     continue
                 else:
                     raise e
-
+            # print(3, self._get_grad_norm())
             self.train_metrics.update("grad_norm", self._get_grad_norm())
 
             # log current results
@@ -278,8 +278,7 @@ class BaseTrainer:
                 total=len(dataloader),
             ):
                 batch = self.process_batch(
-                    batch,
-                    metrics=self.evaluation_metrics,
+                    batch, metrics=self.evaluation_metrics, batch_idx=batch_idx
                 )
             self.writer.set_step(epoch * self.epoch_len, part)
             self._log_scalars(self.evaluation_metrics)

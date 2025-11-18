@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torchmetrics.audio import (
-    ScaleInvariantSignalDistortionRatio,
-    ScaleInvariantSignalNoiseRatio,
-)
+
+# from torchmetrics.audio import (
+#     ScaleInvariantSignalDistortionRatio,
+#     ScaleInvariantSignalNoiseRatio,
+# )
 from torchmetrics.functional.audio.pesq import perceptual_evaluation_speech_quality
 from torchmetrics.functional.audio.snr import scale_invariant_signal_noise_ratio
 from torchmetrics.functional.audio.stoi import short_time_objective_intelligibility
@@ -39,7 +40,7 @@ class SNRi_Metric(nn.Module):
 
     def forward(
         self,
-        mix: Tensor,
+        mix_audio: Tensor,
         s1_pred: Tensor,
         s2_pred: Tensor,
         s1_audio: Tensor,
@@ -48,8 +49,8 @@ class SNRi_Metric(nn.Module):
     ) -> Tensor:
         predicted_snr = self.si_snr_pit(s1_pred, s2_pred, s1_audio, s2_audio)
 
-        m1 = scale_invariant_signal_noise_ratio(mix, s1_audio)
-        m2 = scale_invariant_signal_noise_ratio(mix, s2_audio)
+        m1 = scale_invariant_signal_noise_ratio(mix_audio, s1_audio)
+        m2 = scale_invariant_signal_noise_ratio(mix_audio, s2_audio)
         mix_snr = 0.5 * (m1 + m2)
         mix_snr = mix_snr.mean()
 

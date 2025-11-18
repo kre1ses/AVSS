@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import torch
 
 from src.logger.utils import plot_spectrogram
 from src.metrics.metrics import *
@@ -50,18 +51,19 @@ class Trainer(BaseTrainer):
             batch.update(all_losses)
 
         if self.is_train:
-            # batch["loss"].backward()  # sum of all losses is always called loss
+            # sum of all losses is always called loss
             loss = batch["loss"] / self.grad_accum_steps
             self.scaler.scale(loss).backward()
 
-            if (batch_idx + 1) % self.grad_accum_steps == 0:
+            if batch_idx % self.grad_accum_steps == 0:
                 self.scaler.unscale_(self.optimizer)
-                self.clip_grad_norm()
+                self._clip_grad_norm()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
 
                 if self.lr_scheduler is not None:
-                    self.lr_scheduler.step()
+                    self.lr_scheduler.step(loss)
+        print(self.lr_scheduler.get_last_lr())
 
         # update metrics for each loss (in case of multiple losses)
         with torch.no_grad():
@@ -74,13 +76,12 @@ class Trainer(BaseTrainer):
             should_log_metrics = True
             if not self.is_train:
                 n = self.config.trainer.log_inference_every_n_epochs
-                if self.epoch % n != 0:
+                if self.epochs % n != 0:
                     should_log_metrics = False
 
             if should_log_metrics:
                 for met in metric_funcs:
                     metrics.update(met.name, met(**batch))
-
         return batch
 
     def _log_batch(self, batch_idx, batch, mode="train"):
@@ -132,6 +133,10 @@ class Trainer(BaseTrainer):
     ):
 
         tuples = list(zip(s1_pred, s2_pred, s1_audio, s2_audio, mix_audio, mix_path))
+        si_snr = SI_SNR_Metric()
+        snri = SNRi_Metric(name="snri")
+        pesq = PESQ_Metric()
+        stoi = STOI_Metric()
 
         rows = {}
         for s1_p, s2_p, s1_a, s2_a, mix_a, mix_p in tuples[:examples_to_log]:
@@ -141,13 +146,13 @@ class Trainer(BaseTrainer):
                 "mixed_audio": mix_a,
                 "speaker_1_separated": s1_p,
                 "speaker_2_separated": s2_p,
-                "si_snr_speaker_1": SI_SNR_Metric(s1_p, s1_a),
-                "si_snr_speaker_2": SI_SNR_Metric(s2_p, s2_a),
-                "snri": SNRi_Metric(mix_a, s1_p, s2_p, s1_a, s2_a),
-                "pesq_speaker_1": PESQ_Metric(s1_p, s1_a),
-                "pesq_speaker_2": PESQ_Metric(s2_p, s2_a),
-                "stoi_speaker_1": STOI_Metric(s1_p, s1_a),
-                "stoi_speaker_2": STOI_Metric(s2_p, s2_a),
+                "si_snr_speaker_1": si_snr.calc_metric(preds=s1_p, targets=s1_a),
+                "si_snr_speaker_2": si_snr.calc_metric(preds=s2_p, targets=s2_a),
+                "snri": snri.forward(mix_a, s1_p, s2_p, s1_a, s2_a),
+                # "pesq_speaker_1": pesq.calc_metric(preds=s1_p, targets=s1_a),
+                # "pesq_speaker_2": pesq.calc_metric(preds=s2_p, targets=s2_a),
+                # "stoi_speaker_1": stoi.calc_metric(preds=s1_p, targets=s1_a),
+                # "stoi_speaker_2": stoi.calc_metric(preds=s2_p, targets=s2_a),
             }
         self.writer.add_table(
             "predictions", pd.DataFrame.from_dict(rows, orient="index")

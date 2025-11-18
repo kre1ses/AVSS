@@ -73,6 +73,8 @@ To run inference (evaluate the model or save predictions):
 
 ```bash
 python3 inference.py HYDRA_CONFIG_ARGUMENTS
+pip uninstall -y torch torchvision torchaudio
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## Credits
