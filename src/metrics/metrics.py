@@ -49,7 +49,7 @@ class SDRi(nn.Module):
 
         improvement_s1 = predicted_sdr_s1 - mix_s1_sdr  # [B]
         improvement_s2 = predicted_sdr_s2 - mix_s2_sdr  # [B]
-
+        print(improvement_s1.shape, improvement_s2.shape)
         improvement = torch.concat([improvement_s1, improvement_s2]).mean()
         return improvement
 
@@ -63,6 +63,7 @@ class SNRi_Metric(nn.Module):
 
     def __init__(self, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.si_snr_pit = SI_SNR_Metric()
         self.name = name
 
     def forward(
@@ -78,11 +79,11 @@ class SNRi_Metric(nn.Module):
         predicted_snr_s2 = scale_invariant_signal_noise_ratio(s2_pred, s2_audio)  # [B]
         mix_s1_snr = scale_invariant_signal_noise_ratio(mix_audio, s1_audio)  # [B]
         mix_s2_snr = scale_invariant_signal_noise_ratio(mix_audio, s2_audio)  # [B]
-
         improvement_s1 = predicted_snr_s1 - mix_s1_snr  # [B]
         improvement_s2 = predicted_snr_s2 - mix_s2_snr  # [B]
-
-        improvement = torch.concat([improvement_s1, improvement_s2]).mean()
+        improvement = torch.concat(
+            [improvement_s1.unsqueeze(0), improvement_s2.unsqueeze(0)], dim=0
+        ).mean()
         return improvement
 
 

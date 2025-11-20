@@ -10,15 +10,15 @@ optimizer:
   _target_: torch.optim.AdamW
   lr: 0.0003
 lr_scheduler:
-  _target_: torch.optim.lr_scheduler.OneCycleLR
-  max_lr: 0.001
-  total_steps: 9360
-  anneal_strategy: 'cos'
-  pct_start: 0.1
+  _target_: src.scheduler.NoamLR
+  model_size: 64
+  warmup_steps: 1560
+  factor: 1
+loss_function:
   _target_: src.loss.SI_SNR_Loss
 trainer:
   log_step: 10
-  n_epochs: 30
+  n_epochs: 50
   epoch_len:
   grad_accum_steps: 1
   device_tensors: ['s1_spectrogram', 's2_spectrogram', 'mix_spectrogram', 's1_audio', 's2_audio', 'mix_audio', 's1_embs', 's2_embs'] # which tensors should be on device (ex. GPU)
@@ -31,5 +31,5 @@ trainer:
   save_dir: "saved"
   seed: 1
   log_inference_every_n_epochs: 1
-  max_grad_norm: 5.0
+  max_grad_norm: 10.0
   # from_pretrained: "checkpoint-epoch16.pth"
