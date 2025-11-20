@@ -2,14 +2,10 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-# from torchmetrics.audio import (
-#     ScaleInvariantSignalDistortionRatio,
-#     ScaleInvariantSignalNoiseRatio,
-# )
 from torchmetrics.functional.audio.pesq import perceptual_evaluation_speech_quality
 from torchmetrics.functional.audio.snr import scale_invariant_signal_noise_ratio
 from torchmetrics.functional.audio.stoi import short_time_objective_intelligibility
-
+from torchmetrics.functional.audio.sdr import signal_distortion_ratio
 from src.metrics.base_metric import BaseMetric
 
 
@@ -24,6 +20,39 @@ class SI_SNR_Metric(BaseMetric):
 
     def calc_metric(self, preds: Tensor, targets: Tensor) -> Tensor:
         return scale_invariant_signal_noise_ratio(preds, targets)
+    
+
+class SDRi(nn.Module):
+    """
+    SDR improvement in dB
+    Input: mix, preds, targers: [B, T]
+    Output: metric
+    """
+
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
+
+    def forward(
+        self,
+        mix_audio: Tensor,
+        s1_pred: Tensor,
+        s2_pred: Tensor,
+        s1_audio: Tensor,
+        s2_audio: Tensor,
+        **batch
+    ) -> Tensor:
+        
+        predicted_sdr_s1 = signal_distortion_ratio(s1_pred, s1_audio) # [B]
+        predicted_sdr_s2 = signal_distortion_ratio(s2_pred, s2_audio) # [B]
+        mix_s1_sdr = signal_distortion_ratio(mix_audio, s1_audio) # [B]
+        mix_s2_sdr = signal_distortion_ratio(mix_audio, s2_audio) # [B]
+
+        improvement_s1 = predicted_sdr_s1 - mix_s1_sdr # [B]
+        improvement_s2 = predicted_sdr_s2 - mix_s2_sdr # [B]
+
+        improvement = torch.concat([improvement_s1, improvement_s2]).mean() 
+        return improvement
 
 
 class SNRi_Metric(nn.Module):
@@ -35,7 +64,6 @@ class SNRi_Metric(nn.Module):
 
     def __init__(self, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.si_snr_pit = SI_SNR_Metric()
         self.name = name
 
     def forward(

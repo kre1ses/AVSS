@@ -1,1 +1,1 @@
-from src.scheduler.tunable_noam import TunableNoamLR
+from src.scheduler.noam import NoamLR
