@@ -50,7 +50,9 @@ class SDRi(nn.Module):
         improvement_s1 = predicted_sdr_s1 - mix_s1_sdr  # [B]
         improvement_s2 = predicted_sdr_s2 - mix_s2_sdr  # [B]
         print(improvement_s1.shape, improvement_s2.shape)
-        improvement = torch.concat([improvement_s1, improvement_s2]).mean()
+        improvement = torch.concat(
+            [improvement_s1.unsqueeze(0), improvement_s2.unsqueeze(0)], dim=0
+        ).mean()
         return improvement
 
 
