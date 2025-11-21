@@ -10,7 +10,7 @@ bidirectional: True
 R: 6
 C: 2
 fusion_method: 'attention'
-audio_len: 7999 # если L=2, то 31999
+audio_len: 7999
 interpolation_mode: 'linear'
 d_model: 256
 num_heads: 4

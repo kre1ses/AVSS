@@ -16,7 +16,8 @@ class DPTNEncoder(nn.Module):
     def __init__(self, N: int, L: int):
         super().__init__()
         self.encoder = nn.Conv1d(in_channels=1, out_channels=N, kernel_size=L, stride = L // 2, bias=False)
-        self.act = nn.ReLU()
+        # self.act = nn.ReLU()
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.act(self.encoder(x))
+        return self.encoder(x)
+        # return self.act(self.encoder(x))

@@ -181,7 +181,7 @@ class OverlappAdd(nn.Module):
             x, kernel_size=(self.K, 1), stride=(self.H, 1), output_size=(T_new, 1)
         )  # [B*C, N, T_new, 1]
 
-        output = output.squeeze(3)
+        output = output.squeeze(3) # [B*C, N, T_new]
 
         return output
 
@@ -264,18 +264,23 @@ class DPTNSeparator(nn.Module):
         self.C = C
         self.N = N
 
-        self.feat_conv = nn.Conv1d(
+        self.conv = nn.Conv1d(
             in_channels=N, out_channels=N, kernel_size=1, bias=False
         )
         self.segmentation = Segmentation(K, H)
         self.global_norm = GlobalLayerNorm(N)
 
-        self.dptn_blocks = nn.ModuleList(
-            [
-                DPTNBlock(N, nhead, dropout, lstm_dim, bidirectional)
-                for _ in range(R)
-            ]
-        )
+        self.dptn_blocks = nn.Sequential()
+
+        for _ in range(R):
+            dptn_block = DPTNBlock(
+                N=N,
+                nhead=nhead,
+                dropout=dropout,
+                lstm_dim=lstm_dim,
+                bidirectional=bidirectional,
+            )
+            self.dptn_blocks.append(dptn_block)
 
         self.act = nn.PReLU()
         self.conv2d = nn.Conv2d(
@@ -292,15 +297,16 @@ class DPTNSeparator(nn.Module):
         x = self.segmentation(x)  
         x = self.global_norm(x)
 
-        for dptn_block in self.dptn_blocks:
-            x = dptn_block(x)
+        x = self.dptn_blocks(x)  # [batch, N, num_chunks, K]
 
         x = self.act(x)  # [batch, N, num_chunks, K]
         x = self.conv2d(x)  # [batch, C * N, num_chunks, K]
 
-        B, _, _, K = x.shape  # [B, C * N, num_chunks, K]
+        B, _, _, _ = x.shape  # [B, C * N, num_chunks, K]
         x = self.overlap_add(x)  # [B, C*N, T_new]
-        x = x.view(B, self.C, self.N, -1) 
-        masks = self.mask_creator(x)  # [B, C, N, T_new]
+        x = x.view(B * self.C, self.N, -1) # [B*C, N, T_new]
+        x = self.conv(x)  # [B*C, N, T_new]
+        masks = x.view(B, self.C, self.N, -1)  # [B, C, N, T_new]
+        # masks = self.mask_creator(x)  # [B, C, N, T_new]
 
         return masks

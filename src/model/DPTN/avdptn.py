@@ -38,7 +38,7 @@ class AVDPTN(nn.Module):
     def __init__(self, N: int = 128, 
                 L: int = 8,
                 K: int = 151,
-                H: int = 100, 
+                H: int = 72, 
                 nhead: int = 4, 
                 dropout: float = 0.1, 
                 lstm_dim: int = 128, 
