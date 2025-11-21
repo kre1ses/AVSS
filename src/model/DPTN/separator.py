@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 
 from src.model.utils import GlobalLayerNorm
@@ -23,12 +24,14 @@ class Segmentation(nn.Module):
         self.H = H
 
     def forward(self, x: Tensor) -> Tensor:
+        B, N, T = x.shape
         chunks = x.unfold(
             dimension=2, size=self.K, step=self.H
-        )  # [B, feature_dim, num_chunks, K]
+        ).contiguous()  # [B, feature_dim, K, num_chunks]
+        chunks = chunks.view(B, N, self.K, -1)
         chunks = chunks.permute(
             0, 1, 3, 2
-        ).contiguous()  # [B, feature_dim, K, num_chunks]
+        ).contiguous()  # [B, feature_dim, num_chunks, K]
 
         return chunks
 
@@ -118,21 +121,21 @@ class DPTNBlock(nn.Module):
             feature_dim, nhead, dropout, lstm_dim, bidirectional
         )
         self.inter_transformer = DPTNTransformer(
-            feature_dim, nhead, dropout, lstm_dim, bidirectional=False
+            feature_dim, nhead, dropout, lstm_dim, bidirectional=bidirectional
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        B, feature_dim, K, num_chunks = x.shape
+        B, feature_dim, num_chunks, K = x.shape
 
         x = (
-            x.permute(0, 3, 2, 1).contiguous().view(B * num_chunks, K, feature_dim)
+            x.permute(0, 2, 3, 1).contiguous().view(B * num_chunks, K, feature_dim)
         )  # K - embed_dim
         x = self.intra_transformer(x)
 
         x = (
             x.contiguous()
             .view(B, num_chunks, K, feature_dim)
-            .permute(0, 2, 3, 1)
+            .permute(0, 2, 1, 3)
             .contiguous()
             .view(B * K, num_chunks, feature_dim)
         )  # num_chunks - embed_dim
@@ -141,7 +144,7 @@ class DPTNBlock(nn.Module):
         x = (
             x.contiguous()
             .view(B, K, num_chunks, feature_dim)
-            .permute(0, 3, 1, 2)
+            .permute(0, 3, 2, 1)
             .contiguous()
         )
         return x
@@ -165,15 +168,20 @@ class OverlappAdd(nn.Module):
         self.H = H
 
     def forward(self, x: Tensor) -> Tensor:
-        BC, feature_dim, _, num_chunks = x.shape
+        BC, feature_dim, num_chunks, _ = x.shape
         T_new = self.H * (num_chunks - 1) + self.K
 
-        output = torch.zeros(BC, feature_dim, T_new, device=x.device, dtype=x.dtype)
+        x = (
+            x.permute(0, 1, 3, 2)
+            .contiguous()
+            .view(BC, feature_dim * self.K, num_chunks)
+        )
 
-        for i in range(num_chunks):
-            start = i * self.H
-            end = start + self.K
-            output[:, :, start:end] += x[:, :, :, i]
+        output = F.fold(
+            x, kernel_size=(self.K, 1), stride=(self.H, 1), output_size=(T_new, 1)
+        )  # -> (batch_size, num_features, T_new, 1)
+
+        output = output.squeeze(3)
 
         return output
 
@@ -196,31 +204,32 @@ class MaskCreator(nn.Module):
         self.C = C
         self.N = N
 
-        self.tanh = nn.Tanh()
-        self.tanh_conv = nn.Conv1d(
-            in_channels=feature_dim, out_channels=feature_dim, kernel_size=1, bias=False
+        self.tanh = nn.Sequential(
+            nn.Conv1d(in_channels=N, out_channels=N, kernel_size=1, bias=False),
+            nn.Tanh(),
         )
-        self.sigmoid = nn.Sigmoid()
-        self.sigmoid_conv = nn.Conv1d(
-            in_channels=feature_dim, out_channels=feature_dim, kernel_size=1, bias=False
+
+        self.sigmoid = nn.Sequential(
+            nn.Conv1d(in_channels=N, out_channels=N, kernel_size=1, bias=False),
+            nn.Sigmoid(),
         )
         self.act = nn.ReLU()
-        self.mask_conv1x1 = nn.Conv1d(
-            in_channels=feature_dim, out_channels=N, kernel_size=1, bias=False
-        )
 
     def forward(self, x: Tensor) -> Tensor:
-        BC, F, T_new = x.shape
-        assert BC % self.C == 0, "BC must be divisible by C"
-        B = BC // self.C
+        B, C, N, T_new = x.shape
 
-        x_tanh = self.tanh(self.tanh_conv(x))  # [batch * C, feature_dim, T_new]
-        x_sigmoid = self.sigmoid(
-            self.sigmoid_conv(x)
-        )  # [batch * C, feature_dim, T_new]
-        x = self.mask_conv1x1(x_tanh * x_sigmoid)  # [batch * C, N, T_new]
+        # x = [self.act(self.tanh(x[:, i, :, :]) * self.sigmoid(x[:, i, :, :])) for i in range(C)]
 
-        masks = x.view(B, self.C, self.N, T_new)  # [batch, C, N, T_new]
+        # masks = torch.stack([i.unsqueeze(1) for i in x], dim=1)
+
+        x = x.view(B * C, N, T_new)  # [B*C, N, T_new]
+
+        x_tanh = self.tanh(x)  # [B*C, N, T_new]
+        x_sigmoid = self.sigmoid(x)  # [B*C, N, T_new]
+
+        x = self.act(x_tanh * x_sigmoid)  # [B*C, N, T_new]
+
+        masks = x.view(B, C, N, T_new)
 
         return masks
 
@@ -268,6 +277,7 @@ class DPTNSeparator(nn.Module):
         )
         self.segmentation = Segmentation(K, H)
         self.global_norm = GlobalLayerNorm(N)
+        # self.global_norm = GlobalLayerNorm(feature_dim)
 
         self.dptn_blocks = nn.ModuleList(
             [
@@ -278,8 +288,8 @@ class DPTNSeparator(nn.Module):
 
         self.act = nn.PReLU()
         self.conv2d = nn.Conv2d(
-            in_channels=feature_dim,
-            out_channels=feature_dim * C,
+            in_channels=N,
+            out_channels=N * C,
             kernel_size=1,
             bias=False,
         )
@@ -287,22 +297,24 @@ class DPTNSeparator(nn.Module):
         self.mask_creator = MaskCreator(feature_dim, N, C)
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.global_norm(x)  # [B, N, T_new]
-        x = self.feat_conv(x)  # [B, feature_dim, T_new]
+        # x = self.global_norm(x)  # [B, N, T_new]
+        # x = self.feat_conv(x)  # [B, feature_dim, T_new]
 
         x = self.segmentation(x)  # [B, feature_dim, K, num_chunks]
+        x = self.global_norm(x)
 
         for dptn_block in self.dptn_blocks:
             x = dptn_block(x)
 
-        x = self.act(x)  # [B, feature_dim, K, num_chunks]
-        x = self.conv2d(x)  # [B, C*feature_dim, K, num_chunks]
+        x = self.act(x)  # [B, feature_dim, num_chunks, K]
+        x = self.conv2d(x)  # [B, C*feature_dim, num_chunks, K]
 
-        B, _, K, num_chunks = x.shape
-        x = x.view(
-            B * self.C, self.feature_dim, K, num_chunks
-        )  # [B*C, feature_dim, K, num_chunks]
-        x = self.overlap_add(x)  # [B*C, feature_dim, T_new]
+        B, _, num_chunks, K = x.shape  # [B, C*feature_dim, num_chunks, K]
+        # x = x.view(
+        #     B * self.C, self.N, num_chunks, K
+        # )  # [B*C, feature_dim, K, num_chunks]
+        x = self.overlap_add(x)  # [B, C*feature_dim, T_new]
+        x = x.view(B, self.C, self.N, -1)
         masks = self.mask_creator(x)  # [B, C, N, T_new]
 
         return masks
