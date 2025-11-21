@@ -49,7 +49,7 @@ class DPTN(nn.Module):
         mix_audio = mix_audio.unsqueeze(1)  # [batch, 1, T]
         mix_enc = self.encoder(mix_audio)  # [batch, N, T_new]
         masks = self.separator(mix_enc)  # [batch, C, N, T_new]
-        masked_audios = mix_enc.unsqueeze(1) * masks  # [batch, C, N, T_new]
+        masked_audios = mix_enc.unsqueeze(1) + masks  # [batch, C, N, T_new]
         separated_audios = self.decoder(masked_audios)  # [batch, C, T]
 
         return {
