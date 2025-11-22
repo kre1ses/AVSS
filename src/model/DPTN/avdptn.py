@@ -90,9 +90,9 @@ class AVDPTN(nn.Module):
         mix_audio = mix_audio.unsqueeze(1)  # [batch, 1, T]
         mix_enc = self.encoder(mix_audio)  # [batch, N, T_new]
         fused_embs = self.fusion(mix_enc, s1_embs, s2_embs)
-        masks = self.separator(fused_embs)  # [batch, C, N, T_new]
-        masked_audios = fused_embs.unsqueeze(1) * masks  # [batch, C, N, T_new]
-        separated_audios = self.decoder(masked_audios)  # [batch, C, T]
+        masked = self.separator(fused_embs)  # [batch, C, N, T_new]
+        masked = fused_embs.unsqueeze(1) + masked  # [batch, C, N, T_new]
+        separated_audios = self.decoder(masked)  # [batch, C, T]
 
         return {
             "s1_pred": separated_audios[:, 0, :],

@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
@@ -25,9 +24,8 @@ class Segmentation(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         B, N, T = x.shape
-        chunks = x.unfold(
-            dimension=2, size=self.K, step=self.H
-        ).contiguous()  # [B, N, K, num_chunks]
+        x = x.view(B, N, T, 1) # [B, N, T, 1]
+        chunks = F.unfold(x, kernel_size=(self.K, 1), stride=(self.H, 1)) # [B, N, K, num_chunks]
         chunks = chunks.view(B, N, self.K, -1)
         chunks = chunks.permute(
             0, 1, 3, 2
@@ -40,7 +38,7 @@ class DPTNTransformer(nn.Module):
     """
     Improved transformer module in DPTN model
     Args:
-        embed_dim (int): dimension of model
+        N (int): number of filters in autoencoder
         nhead (int): number of heads in multi-head attention
         dropout (float): dropout in transformer
         lstm_dim (int): dimension of LSTM layer
@@ -52,7 +50,7 @@ class DPTNTransformer(nn.Module):
 
     def __init__(
         self,
-        embed_dim: int,
+        N: int,
         nhead: int,
         dropout: float,
         lstm_dim: int,
@@ -61,21 +59,22 @@ class DPTNTransformer(nn.Module):
         super().__init__()
 
         self.attention = nn.MultiheadAttention(
-            embed_dim=embed_dim, num_heads=nhead, dropout=dropout, batch_first=True
+            embed_dim=N, num_heads=nhead, dropout=dropout, batch_first=True
         )
 
-        self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNorm(embed_dim)
+        self.norm1 = nn.LayerNorm(N)
+        self.norm2 = nn.LayerNorm(N)
         self.ffn_act = nn.ReLU()
 
         self.lstm = nn.LSTM(
-            input_size=embed_dim,
+            input_size=N,
             hidden_size=lstm_dim,
             batch_first=True,
             bidirectional=bidirectional,
+            dropout=1,
         )
         lstm_output_dim = lstm_dim * 2 if bidirectional else lstm_dim
-        self.linear = nn.Linear(lstm_output_dim, embed_dim)
+        self.linear = nn.Linear(lstm_output_dim, N)
 
     def forward(self, x: Tensor) -> Tensor:
         self.lstm.flatten_parameters()
@@ -84,8 +83,8 @@ class DPTNTransformer(nn.Module):
         x = self.attention(x, x, x, need_weights=False)[0]
         x = self.norm1(x + res)
         res = x
-        x = self.ffn_act(self.lstm(x)[0])
-        x = self.linear(x)
+        x = self.lstm(x)[0]
+        x = self.linear(self.ffn_act(x))
         x = self.norm2(x + res)
 
         return x
@@ -118,7 +117,7 @@ class DPTNBlock(nn.Module):
         super().__init__()
 
         self.intra_transformer = DPTNTransformer(
-            N, nhead, dropout, lstm_dim, bidirectional
+            N, nhead, dropout, lstm_dim, bidirectional=True
         )
         self.inter_transformer = DPTNTransformer(
             N, nhead, dropout, lstm_dim, bidirectional=bidirectional
@@ -265,10 +264,10 @@ class DPTNSeparator(nn.Module):
         self.N = N
 
         self.conv = nn.Conv1d(
-            in_channels=N, out_channels=N, kernel_size=1, bias=False
+            in_channels=N, out_channels=N, kernel_size=1
         )
         self.segmentation = Segmentation(K, H)
-        self.global_norm = GlobalLayerNorm(N)
+        # self.global_norm = GlobalLayerNorm(N)
 
         self.dptn_blocks = nn.Sequential()
 
@@ -286,24 +285,21 @@ class DPTNSeparator(nn.Module):
         self.conv2d = nn.Conv2d(
             in_channels=N,
             out_channels=N * C,
-            kernel_size=1,
-            bias=False,
+            kernel_size=1
         )
         self.overlap_add = OverlappAdd(K, H)
-        self.mask_creator = MaskCreator(N, C)
+        # self.mask_creator = MaskCreator(N, C)
 
     def forward(self, x: Tensor) -> Tensor:
 
-        x = self.segmentation(x)  
-        x = self.global_norm(x)
+        segm_x = self.segmentation(x)  
+        # x = self.global_norm(x)
 
-        x = self.dptn_blocks(x)  # [batch, N, num_chunks, K]
+        trans_x = self.dptn_blocks(segm_x)  # [batch, N, num_chunks, K]
+        trans_x = self.conv2d(self.act(trans_x))  # [batch, C * N, num_chunks, K]
 
-        x = self.act(x)  # [batch, N, num_chunks, K]
-        x = self.conv2d(x)  # [batch, C * N, num_chunks, K]
-
-        B, _, _, _ = x.shape  # [B, C * N, num_chunks, K]
-        x = self.overlap_add(x)  # [B, C*N, T_new]
+        B, _, _, _ = trans_x.shape  # [B, C * N, num_chunks, K]
+        x = self.overlap_add(trans_x)  # [B, C*N, T_new]
         x = x.view(B * self.C, self.N, -1) # [B*C, N, T_new]
         x = self.conv(x)  # [B*C, N, T_new]
         masks = x.view(B, self.C, self.N, -1)  # [B, C, N, T_new]

@@ -36,17 +36,17 @@ class SI_SNR_Loss_by_hand(BaseLoss):
         targets_zm = targets - targets.mean(dim=-1, keepdim=True)
 
         dot = torch.sum(preds_zm * targets_zm, dim=-1, keepdim=True)
-        target_energy = torch.sum(targets_zm ** 2, dim=-1, keepdim=True) + eps
+        target_energy = torch.linalg.norm(targets_zm, ord=2, dim=-1, keepdim=True) ** 2 + eps
         s_target = dot * targets_zm / target_energy
 
         e_noise = preds_zm - s_target
 
-        si_snr = 10 * torch.log10(
+        si_snr = -20 * torch.log10(
             (torch.sum(s_target ** 2, dim=-1) + eps) /
             (torch.sum(e_noise ** 2, dim=-1) + eps)
         )
 
-        return -si_snr.mean()
+        return si_snr
 
 
 class L1_Loss(BaseLoss):

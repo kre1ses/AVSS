@@ -48,9 +48,9 @@ class DPTN(nn.Module):
     def forward(self, mix_audio: Tensor, **batch) -> Tensor:
         mix_audio = mix_audio.unsqueeze(1)  # [batch, 1, T]
         mix_enc = self.encoder(mix_audio)  # [batch, N, T_new]
-        masks = self.separator(mix_enc)  # [batch, C, N, T_new]
-        masked_audios = mix_enc.unsqueeze(1) + masks  # [batch, C, N, T_new]
-        separated_audios = self.decoder(masked_audios)  # [batch, C, T]
+        masked = self.separator(mix_enc)  # [batch, C, N, T_new]
+        masked = mix_enc.unsqueeze(1) + masked  # [batch, C, N, T_new]
+        separated_audios = self.decoder(masked)  # [batch, C, T]
 
         return {
             "s1_pred": separated_audios[:, 0, :],
