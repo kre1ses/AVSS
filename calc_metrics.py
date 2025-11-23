@@ -47,7 +47,7 @@ def main(config):
 
     mix_files = sorted(os.listdir(mix_path))
 
-    for mix_file in mix_files:  # Обработаем сначала 3 файла для теста
+    for mix_file in mix_files:
         base_name = Path(mix_file).stem
 
         first_id, second_id = base_name.split("_")
@@ -61,7 +61,7 @@ def main(config):
 
             if s1_gt_cand.exists() and s1_gt is None:
                 s1_gt = s1_gt_cand
-                print(f"Found s1_gt: {s1_gt}")
+
             if s2_gt_cand.exists() and s2_gt is None:
                 s2_gt = s2_gt_cand
 
