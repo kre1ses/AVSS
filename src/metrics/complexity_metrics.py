@@ -21,7 +21,7 @@ def compute_model_complexity(model: nn.Module, is_video: bool):
         "коичество параметров": params ,  
         "gmacs": macs / 1e9        
     }
-
+ 
 
 def compute_model_size(model_path: str, is_video: bool):
     """
