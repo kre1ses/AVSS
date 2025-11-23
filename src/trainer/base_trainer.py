@@ -225,7 +225,7 @@ class BaseTrainer:
                     continue
                 else:
                     raise e
-            # print(3, self._get_grad_norm())
+
             self.train_metrics.update("grad_norm", self._get_grad_norm())
 
             # log current results
@@ -552,7 +552,9 @@ class BaseTrainer:
             self.logger.info(f"Loading model weights from: {pretrained_path} ...")
         else:
             print(f"Loading model weights from: {pretrained_path} ...")
-        checkpoint = torch.load(pretrained_path, self.device)
+        checkpoint = torch.load(
+            pretrained_path, map_location=self.device, weights_only=False
+        )
 
         if checkpoint.get("state_dict") is not None:
             self.model.load_state_dict(checkpoint["state_dict"])

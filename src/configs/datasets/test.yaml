@@ -1,0 +1,5 @@
+test:
+  _target_: src.datasets.AVSSDataset
+  part: "test"
+  embed_dir: "src/data/embeddings"
+  instance_transforms: ${transforms.instance_transforms.inference}

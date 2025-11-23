@@ -2,8 +2,8 @@ train: [] # metrics that are calculated during training
 inference: # metrics that are calculated during inference (eval)
   - _target_: src.metrics.SI_SNR_Metric
     name: "SI_SNR_Metric" # it is better to avoid spaces in names
-  - _target_: src.metrics.SNRi_Metric
-    name: "SNRi_Metric"
+  - _target_: src.metrics.SI_SNRi_Metric
+    name: "SI_SNRi_Metric"
   # - _target_: src.metrics.PESQ_Metric
   #   name: "PESQ_Metric"
   # - _target_: src.metrics.STOI_Metric

@@ -8,7 +8,7 @@ from src.model.ConvTasNet.separator import ConvTasNetSeparator
 
 class ConvTasNet(nn.Module):
     """
-    ConvTasNet model with Video Support (https://arxiv.org/pdf/1809.07454)
+    ConvTasNet model (https://arxiv.org/pdf/1809.07454)
 
     Args:
         N (int): number of filters in autoencoder
@@ -21,7 +21,7 @@ class ConvTasNet(nn.Module):
         R (int): number of repeats
         C (int): number of speakers
 
-    Input: [batch, 1, T]
+    Input: [batch, T]
     Output: dict, where s{i} -> [:, i, :] (i-th speaker audio)
     """
 
@@ -43,7 +43,7 @@ class ConvTasNet(nn.Module):
         self.decoder = ConvTasNetDecoder(N, L)
 
     def forward(self, mix_audio: Tensor, **batch) -> dict:
-        # print(mix_audio.unsqueeze(1).shape)
+        
         mix_audio = mix_audio.unsqueeze(1)  # [batch, 1, T]
         mix_enc = self.encoder(mix_audio)  # [batch, N, T_new]
         masks = self.separator(mix_enc)  # [batch, C, N, T_new]

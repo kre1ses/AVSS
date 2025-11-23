@@ -1,16 +1,12 @@
 train:
-  _target_: src.datasets.LibrispeechDataset
-  part: "dev-clean"
-  max_audio_length: 20.0
-  max_text_length: 200
-  limit: 2
+  _target_: src.datasets.AVSSDataset
+  part: "val"
+  embed_dir: "src/data/embeddings"
   instance_transforms: ${transforms.instance_transforms.train}
-# we filter partitions in one batch test to check the pipeline
-# do not filter test dataset, you want to evaluate on the whole dataset
+  limit: 4
 val:
-  _target_: src.datasets.LibrispeechDataset
-  part: "dev-clean"
-  max_audio_length: 20.0
-  max_text_length: 200
-  limit: 2
+  _target_: src.datasets.AVSSDataset
+  part: "val"
+  embed_dir: "src/data/embeddings"
   instance_transforms: ${transforms.instance_transforms.inference}
+  limit: 4

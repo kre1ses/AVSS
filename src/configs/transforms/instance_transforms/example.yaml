@@ -2,15 +2,7 @@ train:
   get_spectrogram: # special key for getting spectrogram
     _target_: torchaudio.transforms.Spectrogram
     # sample_rate: 16000
-  mix_audio: 
-    _target_: torchvision.transforms.v2.Compose
-    transforms:
-      - _target_: src.transforms.wav_augs.Gain
-  s1_audio:
-    _target_: torchvision.transforms.v2.Compose
-    transforms:
-      - _target_: src.transforms.wav_augs.Gain
-  s2_audio:
+  mix_audio:
     _target_: torchvision.transforms.v2.Compose
     transforms:
       - _target_: src.transforms.wav_augs.Gain

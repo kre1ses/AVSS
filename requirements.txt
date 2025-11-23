@@ -2,7 +2,7 @@ torch==2.6.0
 torchvision==0.21.0
 torchaudio==2.6.0
 soundfile
-numpy==1.26.4
+numpy==2.0.1
 torchmetrics
 torchmetrics[audio]
 torch_audiomentations
@@ -12,10 +12,14 @@ pandas
 wandb
 comet_ml
 hydra-core
+gdown
+opencv-python
 
 black
 isort
 pre-commit
-# hydra
 wget
 thop
+gdown
+opencv-python
+yadisk

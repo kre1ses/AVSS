@@ -1,4 +1,4 @@
-# Automatic Speech Recognition (ASR) with PyTorch
+# Bridging Audio and Audio-Visual Source Separation: A Review and Experimental Evaluation of Modern Models
 
 <p align="center">
   <a href="#about">About</a> •
@@ -10,71 +10,117 @@
 
 ## About
 
-This repository contains a template for solving ASR task with PyTorch. This template branch is a part of the [HSE DLA course](https://github.com/markovka17/dla) ASR homework. Some parts of the code are missing (or do not follow the most optimal design choices...) and students are required to fill these parts themselves (as well as writing their own models, etc.).
-
-See the task assignment [here](https://github.com/markovka17/dla/tree/2024/hw1_asr).
+This repository contains implementations of Audio-Visual Source Separation models based on the papers
+[*Conv-TasNet: Surpassing Ideal Time-Frequency Magnitude Masking for Speech Separation*](https://arxiv.org/pdf/1809.07454)  by Yi Luo, Nima Mesgarani et al. (2019) and
+[*Dual-Path Transformer Network: Direct Context-Aware Modeling for End-to-End Monaural Speech Separation*](https://arxiv.org/pdf/2007.13975)  by Jingjing Chen, Qirong Mao, Dong Liu et al. (2020)
 
 ## Installation
 
-Follow these steps to install the project:
+Download all dependencies:
+```bash
+pip install -r ./requirements.txt
+```
 
-0. (Optional) Create and activate new environment using [`conda`](https://conda.io/projects/conda/en/latest/user-guide/getting-started.html) or `venv` ([`+pyenv`](https://github.com/pyenv/pyenv)).
+Install `pre-commit`:
+```bash
+pre-commit install
+```
 
-   a. `conda` version:
+Set cometml api key locally
+```bash
+export COMET_API_KEY="YOUR-KEY"
+```
 
-   ```bash
-   # create env
-   conda create -n project_env python=PYTHON_VERSION
+Download one of the models:
+```bash
+python3 download_model.py --config-name download_model ++link='link for chosen model'
+```
 
-   # activate env
-   conda activate project_env
-   ```
+List of available models:
 
-   b. `venv` (`+pyenv`) version:
+```python
+available_links = {
+    'av_convtasnet with gate fusion': "https://drive.google.com/uc?id=1JeGi10EHFrDIx2WjceL6Vcz-4qWoPv82&export=download",
+    'dptn': "https://drive.google.com/uc?id=1qujtsl1wmv-zMMd3vm_6XJDtOs6UtFG3&export=download",
+    'av_dptn with gate fusion': "https://drive.google.com/uc?id=1TlKEfqjZIV4kMVIbgGJd0y2fXw5J3efB&export=download",
+    'av_dptn with attention fusion': "https://drive.google.com/uc?id=1jf-p_rH5S-s1y40THRqOVY1Fw_gyvFZj&export=download",
+    'av_dptn with linear fusion': "https://drive.google.com/uc?id=1tdx4q6UgXRfaabTvwGQVfoEni-szkAg_&export=download",
+    'fast av_dptn with linear fusion': "https://drive.google.com/uc?id=1-7aNkDMWpMfxjJhDIE8rtK4m0QkumyKV&export=download"
+}
+```
 
-   ```bash
-   # create env
-   ~/.pyenv/versions/PYTHON_VERSION/bin/python3 -m venv project_env
-
-   # alternatively, using default python version
-   python3 -m venv project_env
-
-   # activate env
-   source project_env/bin/activate
-   ```
-
-1. Install all required packages
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Install `pre-commit`:
-   ```bash
-   pre-commit install
-   ```
-
-3. Set cometml api key locally
-   ```bash
-   $env:COMET_API_KEY="wqjSfA48jdUyifULofd0j5U1m"
-   ```
+If you have GPU locally, run this:
+```bash
+pip uninstall -y torch torchvision torchaudio
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
 
 ## How To Use
+
+(Optional) If you do not have your datab for inference locally, dowload it from Yandex Disk with script:
+
+```bash
+python3 download_data.py --config-name download_data ++data_dir="data_dir" ++public_url='Link to your dataset' ++file_name="your file name.zip"
+```
+
+Install model for video embeddings:
+
+```bash
+python3 get_video_embeddings.py -cn=make_video_embeddings mouths_path="data_dir\mouths"
+```
 
 To train a model, run the following command:
 
 ```bash
-python3 train.py -cn=CONFIG_NAME HYDRA_CONFIG_ARGUMENTS
+python3 train.py -cn=dptn
 ```
 
-Where `CONFIG_NAME` is a config from `src/configs` and `HYDRA_CONFIG_ARGUMENTS` are optional arguments.
-
-To run inference (evaluate the model or save predictions):
+To run inference (evaluate the model or save predictions) with custom dataset:
 
 ```bash
-python3 inference.py HYDRA_CONFIG_ARGUMENTS
-pip uninstall -y torch torchvision torchaudio
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+python3 inference.py -cn=inference_av_dptn
+```
+
+Make sure, your custom dataset has following format
+
+```
+NameOfTheDirectoryWithUtterances
+├── audio
+│   ├── mix
+│   │   ├── FirstSpeakerID1_SecondSpeakerID1.wav # also may be flac or mp3
+│   │   ├── FirstSpeakerID2_SecondSpeakerID2.wav
+│   │   .
+│   │   .
+│   │   .
+│   │   └── FirstSpeakerIDn_SecondSpeakerIDn.wav
+│   ├── s1 # ground truth for the speaker s1, may not be given
+│   │   ├── FirstSpeakerID1_SecondSpeakerID1.wav # also may be flac or mp3
+│   │   ├── FirstSpeakerID2_SecondSpeakerID2.wav
+│   │   .
+│   │   .
+│   │   .
+│   │   └── FirstSpeakerIDn_SecondSpeakerIDn.wav
+│   └── s2 # ground truth for the speaker s2, may not be given
+│       ├── FirstSpeakerID1_SecondSpeakerID1.wav # also may be flac or mp3
+│       ├── FirstSpeakerID2_SecondSpeakerID2.wav
+│       .
+│       .
+│       .
+│       └── FirstSpeakerIDn_SecondSpeakerIDn.wav
+└── mouths # contains video information for all speakers
+    ├── FirstOrSecondSpeakerID1.npz # npz mouth-crop
+    ├── FirstOrSecondSpeakerID2.npz
+    .
+    .
+    .
+    └── FirstOrSecondSpeakerIDn.npz
+```
+
+
+To calculate SI-SNR, SI-SNRi, STOI, PESQ and SDRi run:
+
+```bash
+python3 calc_metrics.py -cn=calculate_metrics ++predictions_path='"data/saved/result"' ++groud_truth_path='"data_dir/audio"' ++mix_path='"data_dir/audio"'
 ```
 
 ## Credits

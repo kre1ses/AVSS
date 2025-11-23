@@ -1,13 +1,15 @@
 defaults:
-  - model: baseline
-  - metrics: example
-  - datasets: example_eval # we do not want to run inference on training data
-  - dataloader: example
-  - transforms: example
+  - model: dptn_attn
+  - metrics: inference_metrics
+  - datasets: inference_dataset # we do not want to run inference on training data
+  - dataloader: inference
+  - transforms: example_only_instance
   - _self_
 inferencer:
-  device_tensors: ["data_object", "labels"] # which tensors should be on device (ex. GPU)
+  device_tensors: ['mix_audio'] # which tensors should be on device (ex. GPU)
   device: auto # device name or "auto"
-  save_path: "example" # any name here, can be a dataset name
+  save_path: "result" # any name here, can be a dataset name
   seed: 1
-  from_pretrained: "saved/model_best.pth" # path to the pretrained model
+  from_pretrained: "saved/exp_name/model_best.pth" # path to the pretrained model
+  # dataset_link:
+  dataset_path: "your_path_to_dataset"

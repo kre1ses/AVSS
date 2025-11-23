@@ -1,0 +1,3 @@
+predictions_path: "/data/saved/result"
+groud_truth_path: "/data_dir/audio"
+mix_path: "/data_dir/audio"

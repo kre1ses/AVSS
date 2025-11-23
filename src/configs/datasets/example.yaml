@@ -1,14 +1,17 @@
 train:
   _target_: src.datasets.AVSSDataset
   part: "train"
+  embed_dir: "src/data/embeddings"
   instance_transforms: ${transforms.instance_transforms.train}
-  # limit: 2
+  limit: 36
 val:
   _target_: src.datasets.AVSSDataset
   part: "val"
+  embed_dir: "src/data/embeddings"
   instance_transforms: ${transforms.instance_transforms.inference}
-  # limit: 2
+  limit: 36
 # test:
 #   _target_: src.datasets.AVSSDataset
 #   part: "test"
+#   embed_dir: "src/data/embeddings"
 #   instance_transforms: ${transforms.instance_transforms.inference}

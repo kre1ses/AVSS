@@ -9,8 +9,6 @@ class GlobalLayerNorm(nn.Module):
     Args: 
         N (int): number of filters in autoencoder
 
-    Input: [B, N, T_L]
-    Output: [B, N, T_L]
     '''
     def __init__(self, N: int):
         super().__init__()

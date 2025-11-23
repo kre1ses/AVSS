@@ -1,0 +1,14 @@
+defaults:
+  - model: avdptn_light
+  - metrics: inference_metrics
+  - datasets: inference_dataset # we do not want to run inference on training data
+  - dataloader: inference
+  - transforms: example_only_instance
+  - _self_
+inferencer:
+  device_tensors: ['mix_audio'] # which tensors should be on device (ex. GPU)
+  device: auto # device name or "auto"
+  save_path: "result" # any name here, can be a dataset name
+  seed: 1
+  from_pretrained: "models/model_best.pth" # path to the pretrained model
+  dataset_path: "your_path_to_dataset"

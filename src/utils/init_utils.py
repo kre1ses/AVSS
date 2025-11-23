@@ -5,6 +5,7 @@ import secrets
 import shutil
 import string
 import subprocess
+import gdown
 
 import numpy as np
 import torch
@@ -160,3 +161,23 @@ def setup_saving_and_logging(config):
     logger.setLevel(logging.DEBUG)
 
     return logger
+
+
+def load_model_from_gdown(url_link: str, load_path: str):
+    '''
+    Download a file from Google Drive using gdown
+
+    Args:
+        url_link: str
+        model_path: str
+    '''
+    if os.path.isfile(load_path):
+        print(f"'{load_path}' already exists. Skipping download.")
+        return load_path
+    
+    print(f"Downloading '{load_path}'")
+    gdown.download(url_link, load_path, quiet=False)
+
+    print(f"{load_path} downloaded")
+    return load_path
+

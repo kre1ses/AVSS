@@ -4,7 +4,6 @@ import pandas as pd
 import torch
 
 from src.logger.utils import plot_spectrogram
-from src.metrics.complexity_metrics import summarize_model_performance
 from src.metrics.metrics import *
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
@@ -52,25 +51,18 @@ class Trainer(BaseTrainer):
             batch.update(all_losses)
 
         if self.is_train:
-            # batch["loss"].backward()  # sum of all losses is always called loss
+            # sum of all losses is always called loss
             loss = batch["loss"] / self.grad_accum_steps
             self.scaler.scale(loss).backward()
 
-            for key in ["loss", "log_probs", "log_probs_length"]:
-                if key in batch and torch.is_tensor(batch[key]):
-                    batch[key] = batch[key].detach()
-            # print(batch_idx, (batch_idx + 1) % self.grad_accum_steps)
             if batch_idx % self.grad_accum_steps == 0:
                 self.scaler.unscale_(self.optimizer)
-                # print("Clipping gradients...")
                 self._clip_grad_norm()
-                # print(1, self._get_grad_norm())
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
 
                 if self.lr_scheduler is not None:
-                    self.lr_scheduler.step(loss)
-        print(self.lr_scheduler.get_last_lr())
+                    self.lr_scheduler.step()
 
         # update metrics for each loss (in case of multiple losses)
         with torch.no_grad():
@@ -89,7 +81,6 @@ class Trainer(BaseTrainer):
             if should_log_metrics:
                 for met in metric_funcs:
                     metrics.update(met.name, met(**batch))
-        # print(2, self._get_grad_norm())
         return batch
 
     def _log_batch(self, batch_idx, batch, mode="train"):
@@ -136,27 +127,23 @@ class Trainer(BaseTrainer):
         s2_audio,
         mix_audio,
         mix_path,
-        examples_to_log=10,
+        examples_to_log=5,
         **batch,
     ):
-        # TODO add beam search
-        # Note: by improving text encoder and metrics design
-        # this logging can also be improved significantly
-
         tuples = list(zip(s1_pred, s2_pred, s1_audio, s2_audio, mix_audio, mix_path))
         si_snr = SI_SNR_Metric()
-        snri = SNRi_Metric(name="snri")
+        snri = SI_SNRi_Metric(name="snri")
         pesq = PESQ_Metric()
         stoi = STOI_Metric()
 
         rows = {}
         for s1_p, s2_p, s1_a, s2_a, mix_a, mix_p in tuples[:examples_to_log]:
+            self.writer.add_audio("mix_audio", mix_a, 16000)
+            self.writer.add_audio("s1_groud_truth", s1_a, 16000)
+            self.writer.add_audio("s2_groud_truth", s2_a, 16000)
+            self.writer.add_audio("s1_separated", s1_p, 16000)
+            self.writer.add_audio("s2_separated", s2_p, 16000)
             rows[Path(mix_p).name] = {
-                "speaker_1_audio": s1_a,
-                "speaker_2_audio": s2_a,
-                "mixed_audio": mix_a,
-                "speaker_1_separated": s1_p,
-                "speaker_2_separated": s2_p,
                 "si_snr_speaker_1": si_snr.calc_metric(preds=s1_p, targets=s1_a),
                 "si_snr_speaker_2": si_snr.calc_metric(preds=s2_p, targets=s2_a),
                 "snri": snri.forward(mix_a, s1_p, s2_p, s1_a, s2_a),

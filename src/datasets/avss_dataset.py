@@ -1,25 +1,25 @@
 import json
 import os
-import shutil
+import zipfile
 from pathlib import Path
 
+import requests
 import torchaudio
-import wget
 from tqdm import tqdm
-import zipfile
 
 from src.datasets.base_dataset import BaseDataset
 from src.utils.io_utils import ROOT_PATH
 
-import requests
-
-public_url = "https://disk.360.yandex.ru/d/9k_k6G6a03GURg"
+public_url = "YOUR DATASET LINK"
 api_url = f"https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key={public_url}"
 download_url = requests.get(api_url).json()["href"]
 
 URL_LINKS = {
-    'dataset': download_url,
+    "dataset": download_url,
 }
+
+ROOT_PATH = Path(ROOT_PATH)
+
 
 class AVSSDataset(BaseDataset):
     """
@@ -35,14 +35,24 @@ class AVSSDataset(BaseDataset):
           ├── {speaker_id}.npz
     """
 
-    def __init__(self, part: str, data_dir=None, *args, **kwargs):
-        assert part in ["train", "val", "test"], \
-            "Аргумент part должен быть одним из ['train', 'val', 'test']"
+    def __init__(self, part: str, data_dir=None, embed_dir=None, *args, **kwargs):
+        assert part in [
+            "train",
+            "val",
+            "test",
+        ], "Аргумент part должен быть одним из ['train', 'val', 'test']"
 
         if data_dir is None:
             data_dir = ROOT_PATH / "data" / "datasets" / "avss"
             data_dir.mkdir(exist_ok=True, parents=True)
-        self._data_dir = data_dir
+        self._data_dir = Path(data_dir)
+
+        if embed_dir is None:
+            self._embed_dir = ROOT_PATH / "src/data/embeddings"
+        else:
+            self._embed_dir = ROOT_PATH / Path(embed_dir)
+
+        self.embed_exists = self._embed_dir.exists() and any(self._embed_dir.iterdir())
 
         index = self._get_or_load_index(part)
         super().__init__(index, *args, **kwargs)
@@ -57,7 +67,7 @@ class AVSSDataset(BaseDataset):
             if response.status_code != 200:
                 raise RuntimeError(f"Ошибка при скачивании: {response.status_code}")
 
-            total = int(response.headers.get('content-length', 0))
+            total = int(response.headers.get("content-length", 0))
             with open(zip_path, "wb") as f, tqdm(
                 total=total, unit="B", unit_scale=True, desc="Downloading AVSS"
             ) as pbar:
@@ -103,7 +113,9 @@ class AVSSDataset(BaseDataset):
 
         supported_exts = [".wav", ".flac", ".mp3"]
         print(f"Создание индекса для части '{part}'...")
-        for mix_file in tqdm(sorted(mix_dir.glob("*")), desc=f"Создание индекса: {part}"):
+        for mix_file in tqdm(
+            sorted(mix_dir.glob("*")), desc=f"Создание индекса: {part}"
+        ):
             if mix_file.suffix.lower() not in supported_exts:
                 continue
 
@@ -128,6 +140,13 @@ class AVSSDataset(BaseDataset):
             mouth1_path = mouths_root / f"{first_id}.npz"
             mouth2_path = mouths_root / f"{second_id}.npz"
 
+            if self.embed_exists:
+                s1_emb_path = self._embed_dir / f"{first_id}.npz"
+                s2_emb_path = self._embed_dir / f"{second_id}.npz"
+            else:
+                s1_emb_path = None
+                s2_emb_path = None
+
             if not mix_file.exists():
                 continue
 
@@ -138,8 +157,18 @@ class AVSSDataset(BaseDataset):
                 "mix_path": str(mix_file.resolve()),
                 "s1_path": str(s1_path.resolve()) if s1_path else None,
                 "s2_path": str(s2_path.resolve()) if s2_path else None,
-                "mouth1_path": str(mouth1_path.resolve()) if mouth1_path.exists() else None,
-                "mouth2_path": str(mouth2_path.resolve()) if mouth2_path.exists() else None,
+                "mouth1_path": str(mouth1_path.resolve())
+                if mouth1_path.exists()
+                else None,
+                "mouth2_path": str(mouth2_path.resolve())
+                if mouth2_path.exists()
+                else None,
+                "s1_emb_path": str(s1_emb_path.resolve())
+                if (s1_emb_path is not None and s1_emb_path.exists())
+                else None,
+                "s2_emb_path": str(s2_emb_path.resolve())
+                if (s2_emb_path is not None and s2_emb_path.exists())
+                else None,
                 "audio_len": length,
                 "speakers": [first_id, second_id],
             }

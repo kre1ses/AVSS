@@ -26,8 +26,6 @@ class BaseDataset(Dataset):
         index,
         target_sr=16000,
         limit=None,
-        max_audio_length=None,
-        max_text_length=None,
         shuffle_index=False,
         instance_transforms=None,
     ):
@@ -40,8 +38,6 @@ class BaseDataset(Dataset):
             target_sr (int): supported sample rate.
             limit (int | None): if not None, limit the total number of elements
                 in the dataset to 'limit' elements.
-            max_audio_length (int): maximum allowed audio length.
-            max_test_length (int): maximum allowed text length.
             shuffle_index (bool): if True, shuffle the index. Uses python
                 random package with seed 42.
             instance_transforms (dict[Callable] | None): transforms that
@@ -81,40 +77,45 @@ class BaseDataset(Dataset):
             else None
         )
 
-        if data_dict.get("mouth1_path") and Path(data_dict["mouth1_path"]).exists():
-            with np.load(data_dict["mouth1_path"]) as data:
-                mouth1 = data["data"]
+        if data_dict.get("s1_emb_path") and Path(data_dict["s1_emb_path"]).exists():
+            with np.load(data_dict["s1_emb_path"]) as data:
+                s1_emb = data["embedding"]
         else:
-            mouth1 = None
+            s1_emb = None
 
-        if data_dict.get("mouth2_path") and Path(data_dict["mouth2_path"]).exists():
-            with np.load(data_dict["mouth2_path"]) as data:
-                mouth2 = data["data"]
+        if data_dict.get("s2_emb_path") and Path(data_dict["s2_emb_path"]).exists():
+            with np.load(data_dict["s2_emb_path"]) as data:
+                s2_emb = data["embedding"]
         else:
-            mouth2 = None
+            s2_emb = None
 
         instance_data = {
             "mix_audio": mix_audio,
             "s1_audio": s1_audio,
             "s2_audio": s2_audio,
-            "mouth1": mouth1,
-            "mouth2": mouth2,
+            "s1_emb": s1_emb,
+            "s2_emb": s2_emb,
             "mix_path": data_dict["mix_path"],
             "mouth1_path": data_dict["mouth1_path"],
             "mouth2_path": data_dict["mouth2_path"],
-            "mix_lenght": data_dict["audio_len"],
+            "mix_length": data_dict["audio_len"],
         }
         instance_data = self.preprocess_data(instance_data)
 
         instance_data["mix_spectrogram"] = self.get_spectrogram(
             instance_data["mix_audio"]
         )
-        instance_data["s1_spectrogram"] = self.get_spectrogram(
-            instance_data["s1_audio"]
+        instance_data["s1_spectrogram"] = (
+            self.get_spectrogram(instance_data["s1_audio"])
+            if s1_audio is not None
+            else None
         )
-        instance_data["s2_spectrogram"] = self.get_spectrogram(
-            instance_data["s2_audio"]
+        instance_data["s2_spectrogram"] = (
+            self.get_spectrogram(instance_data["s2_audio"])
+            if s2_audio is not None
+            else None
         )
+
         return instance_data
 
     def __len__(self):

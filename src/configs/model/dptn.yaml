@@ -1,0 +1,11 @@
+_target_: src.model.DPTN
+N: 64
+L: 8
+K: 151
+H: 72
+nhead: 4
+dropout: 0.1
+lstm_dim: 128
+bidirectional: True
+R: 6
+C: 2

@@ -1,0 +1,4 @@
+inference:
+  _target_: src.datasets.CustomDirDataset
+  instance_transforms: ${transforms.instance_transforms.inference}
+  dataset_dir: ${inferencer.dataset_path}
