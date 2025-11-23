@@ -135,22 +135,29 @@ class Inferencer(BaseTrainer):
 
         batch_size = batch["mix_audio"].shape[0]
 
+        def normalize(x):
+            return x / max(x.abs().max(), 1e-8)
+
         for i in range(batch_size):
             file_name = Path(str(batch["mix_path"][i])).stem
             s1_pred = batch["s1_pred"][i].clone().cpu()
             s2_pred = batch["s2_pred"][i].clone().cpu()
 
-            s1_pred = self.normalize(s1_pred)
-            s2_pred = self.normalize(s2_pred)
+            s1_pred = normalize(s1_pred)
+            s2_pred = normalize(s2_pred)
 
             if self.save_path_s1 is not None:
                 torchaudio.save(
-                    self.save_path_s1 / f"{file_name}.wav", s1_pred.view(1, -1), 16000
+                    self.save_path_s1 / self.part / f"{file_name}.wav",
+                    s1_pred.view(1, -1),
+                    16000,
                 )
 
             if self.save_path_s2 is not None:
                 torchaudio.save(
-                    self.save_path_s2 / f"{file_name}.wav", s2_pred.view(1, -1), 16000
+                    self.save_path_s2 / self.part / f"{file_name}.wav",
+                    s2_pred.view(1, -1),
+                    16000,
                 )
 
         return batch
@@ -172,6 +179,8 @@ class Inferencer(BaseTrainer):
         self.evaluation_metrics.reset()
 
         # create Save dir
+        self.part = part
+
         if self.save_path_s1 is not None:
             (self.save_path_s1 / part).mkdir(exist_ok=True, parents=True)
 
@@ -192,6 +201,3 @@ class Inferencer(BaseTrainer):
                 )
 
         return self.evaluation_metrics.result()
-
-    def normalize(x):
-        return x / max(x.abs().max(), 1e-8)
