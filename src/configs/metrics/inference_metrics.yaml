@@ -1,11 +1,1 @@
-inference: # metrics that are calculated during inference (eval)
-  - _target_: src.metrics.SI_SNR_Metric
-    name: "SI_SNR_Metric" # it is better to avoid spaces in names
-  - _target_: src.metrics.SI_SNRi_Metric
-    name: "SI_SNRi_Metric"
-  - _target_: src.metrics.PESQ_Metric
-    name: "PESQ_Metric"
-  - _target_: src.metrics.STOI_Metric
-    name: "STOI_Metric"
-  - _target_: src.metrics.SDRi_Metric
-    name: "SDRi_Metric"
+inference: []
