@@ -37,8 +37,12 @@ def main(config):
 
     current_path = Path().absolute().resolve()
 
-    predictions_path_s1 = current_path / Path(config.predictions_path) / "s1"
-    predictions_path_s2 = current_path / Path(config.predictions_path) / "s2"
+    predictions_path_s1 = (
+        current_path / Path(config.predictions_path) / "s1" / "inference"
+    )
+    predictions_path_s2 = (
+        current_path / Path(config.predictions_path) / "s2" / "inference"
+    )
     groud_truth_path_s1 = current_path / Path(config.groud_truth_path) / "s1"
     groud_truth_path_s2 = current_path / Path(config.groud_truth_path) / "s2"
     mix_path = current_path / Path(config.mix_path) / "mix"
