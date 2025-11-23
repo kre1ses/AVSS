@@ -10,7 +10,7 @@ from tqdm import tqdm
 from src.datasets.base_dataset import BaseDataset
 from src.utils.io_utils import ROOT_PATH
 
-public_url = "YOUR DATASET LINK"
+public_url = "https://disk.360.yandex.ru/d/9k_k6G6a03GURg"
 api_url = f"https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key={public_url}"
 download_url = requests.get(api_url).json()["href"]
 
